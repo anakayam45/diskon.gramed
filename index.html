@@ -148,7 +148,7 @@
                 return typeof book.judul === 'string' && book.judul.toLowerCase().includes(query);
             });
             renderBooks(filteredBooks);
-        }, 300);
+        }, 1000);
 
         fetch('output.json')
             .then(res => res.ok ? res.json() : Promise.reject(new Error('Gagal mengambil data')))
@@ -164,4 +164,5 @@
             });
     </script>
 </body>
+
 </html>
