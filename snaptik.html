@@ -3,131 +3,358 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pengunduh Video Sederhana</title>
+    <title>Video Downloader</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
     <style>
-        body { font-family: sans-serif; background-color: #f5f5f5; padding: 20px; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .form-group { margin-bottom: 15px; }
-        .form-group input { width: 100%; padding: 10px; box-sizing: border-box; }
-        .form-group button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        .message { display: none; padding: 10px; margin-top: 10px; border-radius: 4px; }
-        .message.show { display: block; background-color: #ffeeba; color: #856404; }
-        .loader { display: none; text-align: center; }
-        .loader.is-active { display: block; }
-        .result { margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 4px; }
+        /* Gaya tambahan agar lebih rapi */
+        body {
+            font-family: sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .field.is-grouped {
+            align-items: center;
+        }
+        .get-loader.is-active {
+            display: block;
+        }
+        .get-loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Pengunduh Video</h1>
-        <p>Tempel tautan video TikTok Anda di bawah ini dan unduh.</p>
-        <form id="form-unduh">
-            <div class="form-group">
-                <input name="url" id="url" type="text" placeholder="Tempel tautan TikTok di sini" required>
+
+    <section class="section">
+        <div class="container">
+            <h1 class="title is-4 has-text-centered">Video Downloader</h1>
+            <p class="subtitle is-6 has-text-centered">Masukkan URL video dan klik "Get Video".</p>
+            
+            <form name="formurl">
+                <div class="field has-addons">
+                    <div class="control is-expanded">
+                        <input class="input" type="url" id="url" name="url" placeholder="Masukkan URL video di sini...">
+                    </div>
+                    <div class="control">
+                        <button class="button is-info button-paste">
+                            <span>Paste</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="field">
+                    <div class="control has-text-centered">
+                        <button type="submit" class="button is-primary get-loader">
+                            <span class="is-loading"></span>
+                            <span>Get Video</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <article class="message is-danger">
+                <div class="message-body">
+                    </div>
+            </article>
+
+            <div id="js-result" class="box my-4">
+                </div>
+
+            <div id="download" style="display: none;"></div>
+            <div id="snaptik-menu" style="display: none;"></div>
+            <div class="ad-box" style="display: none;"></div>
+
+            <div id="modal-vignette" class="modal">
+                <div class="modal-background"></div>
+                <div class="modal-content" id="modal-content">
+                    </div>
+                <button class="modal-close is-large" aria-label="close"></button>
             </div>
-            <div class="form-group">
-                <button type="submit">Unduh</button>
-            </div>
-            <div class="message" id="alert-message"></div>
-            <div class="loader" id="loader">Memproses...</div>
-        </form>
-        <div id="js-result" class="result"></div>
-    </div>
+            
+        </div>
+    </section>
 
     <script>
-        // Objek untuk pesan bahasa
+        const STORAGE_KEY = 'appConfig';
         const jsLang = {
-            linkEmpty: "Tautan kosong.",
-            notTiktokUrl: "Format URL salah. Silakan periksa kembali. Hanya tautan TikTok yang didukung.",
-            serverError: "Terjadi kesalahan pada server. Silakan coba lagi.",
-            invalidServerResponse: "Respons dari server tidak valid."
+            paste: 'Paste',
+            clear: 'Clear',
+            linkEmpty: 'Tautan tidak boleh kosong!',
+            notUrl: 'Ini bukan tautan yang valid.',
+            partnerIg: 'Kami mendeteksi tautan Instagram. Silakan gunakan situs mitra kami untuk mengunduh video dari Instagram.',
+            partnerFb: 'Kami mendeteksi tautan Facebook. Silakan gunakan situs mitra kami untuk mengunduh video dari Facebook.'
         };
-
-        // Pemilihan elemen-elemen DOM
-        const urlInputElement = document.getElementById("url");
-        const formElement = document.getElementById("form-unduh");
-        const loaderElement = document.getElementById("loader");
-        const alertElement = document.getElementById("alert-message");
-        const resultElement = document.getElementById("js-result");
-
-        // Fungsi untuk menampilkan pesan peringatan sementara
-        function showAlert(message) {
-            loaderElement.style.display = 'none';
-            alertElement.innerHTML = message;
-            alertElement.classList.add("show");
-            setTimeout(() => {
-                alertElement.classList.remove("show");
-            }, 3000);
-        }
-
-        // Fungsi untuk validasi URL
-        function validator(url) {
-            // Regex yang lebih spesifik untuk tautan TikTok
-            const tiktokUrlPattern = /^(https?:\/\/)?(www\.)?(tiktok\.com|vt\.tiktok\.com)\/.*$/i;
-            
-            if (!url) {
-                showAlert(jsLang.linkEmpty);
-                return false;
-            }
-            if (!tiktokUrlPattern.test(url)) {
-                showAlert(jsLang.notTiktokUrl);
-                return false;
-            }
-            return true;
-        }
-
-        // Fungsi untuk menampilkan hasil dari server
-        function displayResult(data) {
-            // Asumsi server mengirimkan HTML atau data yang bisa ditampilkan langsung
-            // Contoh sederhana:
-            resultElement.innerHTML = `
-                <p>Tautan unduhan berhasil dibuat:</p>
-                <a href="${data.downloadLink}" target="_blank">Unduh Video</a>
-            `;
-        }
-
-        // Menambahkan event listener pada form
-        if (formElement) {
-            formElement.addEventListener("submit", async function(event) {
-                event.preventDefault();
-
-                const url = urlInputElement.value;
-
-                if (validator(url)) {
-                    loaderElement.style.display = 'block';
-
-                    try {
-                        // Menggunakan Fetch API untuk permintaan yang lebih modern dan mudah ditangani
-                        const response = await fetch("https://snaptik.app/en2/abc2.php", {
-                            method: "POST",
-                            body: new FormData(formElement),
-                            // Headers yang mungkin diperlukan, seperti Content-Type
-                        });
-
-                        loaderElement.style.display = 'none';
-
-                        if (!response.ok) {
-                            showAlert(jsLang.serverError);
-                            return;
+        function isAndroid() { return /Android/i.test(navigator.userAgent); }
+        function isIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
+        function openPopupIfNeeded() { console.log('Popup function called.'); }
+        function insertSnaptikModalAd() { console.log('Ad function called.'); }
+        function startRender(token) { console.log('Render function started with token:', token); }
+        let hdDownloadInfo = {};
+        function checkHdDownloadReady() { console.log('Checking HD download readiness...'); }
+    </script>
+    
+    <script>
+        var $ = document.querySelector.bind(document)
+        , $$ = document.querySelectorAll.bind(document);
+        const navbarBurgerElement = $(".navbar-burger")
+        , faqBtns = $$(".btn-accordion")
+        , pasteBtn = $(".button-paste")
+        , urlInputElement = $("#url")
+        , alertElement = $(".message")
+        , alertContentElement = $(".message-body")
+        , formElement = document.forms.namedItem("formurl")
+        , downloadsElement = $("#download")
+        , languageBtns = $$(".lang-item")
+        , loaderElement = $(".get-loader")
+        , closeStickyBtn = $("#sticky-close")
+        , adBoxes = $$(".ad-box")
+        , app = {
+            config: JSON.parse(localStorage.getItem(STORAGE_KEY)) || {},
+            setConfig: function(e, t) {
+                this.config[e] = t,
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(this.config))
+            },
+            handleEvents: function() {
+                const e = this;
+                if (adBoxes.forEach(function(e) {
+                    const t = new MutationObserver(function(t, n) {
+                        e && (e.style.minHeight = "")
+                    }
+                    );
+                    t.observe(e, {
+                        attributes: !0,
+                        attributeFilter: ["style"]
+                    })
+                }),
+                formElement && formElement.addEventListener("submit", function(t) {
+                    if (gtag("event", "click_get_video", {
+                        value_input: urlInputElement.value
+                    }),
+                    e.validator()) {
+                        loaderElement.classList.add("is-active");
+                        var n = new FormData(formElement)
+                        , a = new XMLHttpRequest;
+                        a.open("POST", "/abc2.php", !0),
+                        a.onload = function(t) {
+                            200 == a.status ? (openPopupIfNeeded(),
+                            e.insertAndExecute("js-result", "<script type='text/javascript'>" + a.response + "</script>")) : e.showAlert("Error " + a.status + " something went wrong.", "error_status" + a.status, urlInputElement.value)
                         }
-
-                        // Mengasumsikan server merespons dengan JSON
-                        const result = await response.json();
-
-                        // Pengecekan apakah respons JSON memiliki data yang diharapkan
-                        if (result && result.status === 'success' && result.downloadLink) {
-                            displayResult(result);
-                        } else {
-                            showAlert(jsLang.invalidServerResponse);
+                        ,
+                        a.send(n)
+                    }
+                    t.preventDefault()
+                }, !1),
+                languageBtns.forEach(function(t) {
+                    t.onclick = function(t) {
+                        e.setConfig("hl", this.dataset.hl)
+                    }
+                }),
+                navbarBurgerElement.onclick = function(e) {
+                    navbarBurgerElement.classList.toggle("is-active"),
+                    $("#snaptik-menu").classList.toggle("is-active")
+                }
+                ,
+                faqBtns.forEach(e => {
+                    e.addEventListener("click", () => {
+                        var t = e.nextElementSibling;
+                        if (e.classList.contains("active"))
+                            e.classList.remove("active"),
+                            t.style.maxHeight = null;
+                        else {
+                            var n = $$(".btn-accordion.active");
+                            n.forEach(e => {
+                                e.classList.remove("active"),
+                                e.nextElementSibling.style.maxHeight = null
+                            }
+                            ),
+                            e.classList.add("active"),
+                            t.style.maxHeight = t.scrollHeight + "px"
                         }
-
-                    } catch (error) {
-                        console.error("Fetch error:", error);
-                        showAlert(jsLang.serverError);
+                    }
+                    )
+                }
+                ),
+                pasteBtn && pasteBtn.addEventListener("click", () => {
+                    pasteBtn.classList.contains("btn-clear") ? (urlInputElement.value = "",
+                    navigator.clipboard && (pasteBtn.classList.remove("btn-clear"),
+                    $(".button-paste span").innerText = jsLang.paste)) : navigator.clipboard && navigator.clipboard.readText().then(function(t) {
+                        "" != t ? (urlInputElement.value = t,
+                        e.showBtnClear()) : e.showAlert(jsLang.linkEmpty, "input_empty")
+                    })
+                }
+                ),
+                navigator.clipboard || pasteBtn.remove(),
+                urlInputElement && urlInputElement.addEventListener("keyup", function(t) {
+                    urlInputElement.value.length > 0 && e.showBtnClear(),
+                    e.hideAlert
+                }),
+                isAndroid() || isIOS()) {
+                    const e = $(".button-install");
+                    if (e) {
+                        if (e.style.display = "flex",
+                        isIOS()) {
+                            $(".button-install").href = "https://apps.apple.com/app/svideo/id6461307222";
+                            const e = $(".button-install").querySelector(".nav_install_label");
+                            e && (e.innerText = e.textContent + " - IOS")
+                        }
+                        isAndroid()
                     }
                 }
-            });
+                downloadsElement && (downloadsElement.onclick = function(t) {
+                    const n = t.target.closest(".download-file");
+                    if (n) {
+                        if ("true" === n.dataset.ad) {
+                            var a = document.querySelectorAll('ins[data-vignette-loaded="true"]');
+                            0 === a.length && (isIOS() && t.preventDefault(),
+                            t.stopPropagation(),
+                            e.openAdsModal(),
+                            isIOS() && setTimeout(function() {
+                                null != n.getAttribute("href") ? window.location.href = n.getAttribute("href") : gtag("event", "Error_Download_vignetteAds")
+                            }, 1e3))
+                        }
+                        n.dataset.event && gtag("event", "click_download_file", {
+                            server_name: n.dataset.event
+                        })
+                    }
+                    const o = t.target.closest(".btn-render");
+                    o && startRender(o.dataset.token);
+                    const r = t.target.closest(".btn-download-hd");
+                    if (r) {
+                        r.classList.add("downloading"),
+                        r.disabled = !0,
+                        (powerTag.Init = window.powerTag.Init || []).push(function() {
+                            powerAPITag.getRewardedAd("pw_16256")
+                        });
+                        const e = r.dataset.tokenhd
+                        , t = r.dataset.backup;
+                        fetch(`${e}`).then(e => e.json()).then(e => {
+                            e.error ? (r.classList.remove("downloading"),
+                            r.disabled = !1,
+                            window.location.href = t,
+                            gtag("event", "error_getHD")) : (hdDownloadInfo = {
+                                ...hdDownloadInfo,
+                                url: e.url
+                            },
+                            checkHdDownloadReady())
+                        }
+                        ).catch(e => {
+                            r.classList.remove("downloading"),
+                            r.disabled = !1,
+                            window.location.href = t,
+                            gtag("event", "error_getHD_response")
+                        }
+                        ),
+                        r.dataset.event && gtag("event", "click_download_reward", {
+                            quality: "HD_reward"
+                        })
+                    }
+                }
+                )
+            },
+            validator: function() {
+                const e = urlInputElement.value
+                , t = /https?:\/\/(?:[-\w]+\.)?[-\w]+(?:\.\w+)+\/?.*/
+                , n = e.match(t);
+                return "" === e ? (this.showAlert(jsLang.linkEmpty, "link_empty"),
+                !1) : n ? !this.showPartnerLink(e) : (this.showAlert(jsLang.notUrl, "error_url", urlInputElement.value),
+                !1)
+            },
+            showPartnerLink: function(e) {
+                return -1 !== e.indexOf("instagram.com/") ? (this.showAlert(decodeURIComponent(jsLang.partnerIg), "input_url_instagram", urlInputElement.value),
+                !0) : (-1 !== e.indexOf("facebook.com/") || -1 !== e.indexOf("fb.com/")) && (this.showAlert(decodeURIComponent(jsLang.partnerFb), "input_url_facebook", urlInputElement.value),
+                !0)
+            },
+            openAdsModal: function(e="") {
+                $("#modal-vignette").classList.add("is-active");
+                var t = document.getElementById("modal-content");
+                "" == e ? insertSnaptikModalAd() : (t.style.minHeight = "unset",
+                t.innerHTML = e)
+            },
+            hideAlert: function() {
+                alertElement.classList.remove("show"),
+                alertContentElement.innerHTML = ""
+            },
+            showAlert: function(e, t=null, n=null) {
+                loaderElement.classList.remove("is-active"),
+                alertElement.classList.add("show"),
+                alertContentElement.innerHTML = e,
+                setTimeout(function() {
+                    alertElement.classList.remove("show"),
+                    alertContentElement.innerHTML = ""
+                }, 3e3),
+                t && gtag("event", "get_video_failure", {
+                    error_code: t,
+                    value_input: n
+                })
+            },
+            showBtnClear: function() {
+                pasteBtn.classList.add("btn-clear"),
+                $(".button-paste span").innerText = jsLang.clear
+            },
+            insertAndExecute: function(e, t) {
+                domelement = document.getElementById(e),
+                domelement.innerHTML = t;
+                var n = [];
+                ret = domelement.childNodes;
+                for (var a = 0; ret[a]; a++)
+                    !n || !this.nodeName(ret[a], "script") || ret[a].type && "text/javascript" !== ret[a].type.toLowerCase() || n.push(ret[a].parentNode ? ret[a].parentNode.removeChild(ret[a]) : ret[a]);
+                for (script in n)
+                    this.evalScript(n[script])
+            },
+            nodeName: function(e, t) {
+                return e.nodeName && e.nodeName.toUpperCase() === t.toUpperCase()
+            },
+            evalScript: function(e) {
+                data = e.text || e.textContent || e.innerHTML || "";
+                var t = document.getElementsByTagName("head")[0] || document.documentElement
+                , n = document.createElement("script");
+                n.type = "text/javascript",
+                n.appendChild(document.createTextNode(data)),
+                t.insertBefore(n, t.firstChild),
+                t.removeChild(n),
+                e.parentNode && e.parentNode.removeChild(e)
+            },
+            start: function() {
+                this.handleEvents()
+            }
+        };
+        app.start(),
+        document.addEventListener("DOMContentLoaded", () => {
+            function e(e) {
+                e.classList.remove("is-active");
+                var t = document.getElementById("modal-content");
+                t.style.minHeight = "280px",
+                t.innerHTML = ""
+            }
+            function t() {
+                (document.querySelectorAll(".modal") || []).forEach(t => {
+                    e(t)
+                }
+                )
+            }
+            (document.querySelectorAll(".modal-background, .modal-close, .continue-web") || []).forEach(t => {
+                const n = t.closest(".modal");
+                t.addEventListener("click", () => {
+                    e(n)
+                }
+                )
+            }
+            ),
+            document.addEventListener("keydown", e => {
+                const n = e || window.event;
+                27 === n.keyCode && t()
+            }
+            )
         }
+        );
     </script>
+
 </body>
 </html>
