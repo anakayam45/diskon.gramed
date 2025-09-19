@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengunduh Video Sederhana</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f5f5f5; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        .form-group input { width: 100%; padding: 10px; box-sizing: border-box; }
+        .form-group button { width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .message { display: none; padding: 10px; margin-top: 10px; border-radius: 4px; }
+        .message.show { display: block; background-color: #ffeeba; color: #856404; }
+        .loader { display: none; text-align: center; }
+        .loader.is-active { display: block; }
+        .result { margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pengunduh Video</h1>
+        <p>Tempel tautan video TikTok Anda di bawah ini dan unduh.</p>
+        <form id="form-unduh">
+            <div class="form-group">
+                <input name="url" id="url" type="text" placeholder="Tempel tautan TikTok di sini" required>
+            </div>
+            <div class="form-group">
+                <button type="submit">Unduh</button>
+            </div>
+            <div class="message" id="alert-message"></div>
+            <div class="loader" id="loader">Memproses...</div>
+        </form>
+        <div id="js-result" class="result"></div>
+    </div>
+
+    <script>
+        // Objek untuk pesan bahasa
+        const jsLang = {
+            linkEmpty: "Tautan kosong.",
+            notTiktokUrl: "Format URL salah. Silakan periksa kembali. Hanya tautan TikTok yang didukung.",
+            serverError: "Terjadi kesalahan pada server. Silakan coba lagi.",
+            invalidServerResponse: "Respons dari server tidak valid."
+        };
+
+        // Pemilihan elemen-elemen DOM
+        const urlInputElement = document.getElementById("url");
+        const formElement = document.getElementById("form-unduh");
+        const loaderElement = document.getElementById("loader");
+        const alertElement = document.getElementById("alert-message");
+        const resultElement = document.getElementById("js-result");
+
+        // Fungsi untuk menampilkan pesan peringatan sementara
+        function showAlert(message) {
+            loaderElement.style.display = 'none';
+            alertElement.innerHTML = message;
+            alertElement.classList.add("show");
+            setTimeout(() => {
+                alertElement.classList.remove("show");
+            }, 3000);
+        }
+
+        // Fungsi untuk validasi URL
+        function validator(url) {
+            // Regex yang lebih spesifik untuk tautan TikTok
+            const tiktokUrlPattern = /^(https?:\/\/)?(www\.)?(tiktok\.com|vt\.tiktok\.com)\/.*$/i;
+            
+            if (!url) {
+                showAlert(jsLang.linkEmpty);
+                return false;
+            }
+            if (!tiktokUrlPattern.test(url)) {
+                showAlert(jsLang.notTiktokUrl);
+                return false;
+            }
+            return true;
+        }
+
+        // Fungsi untuk menampilkan hasil dari server
+        function displayResult(data) {
+            // Asumsi server mengirimkan HTML atau data yang bisa ditampilkan langsung
+            // Contoh sederhana:
+            resultElement.innerHTML = `
+                <p>Tautan unduhan berhasil dibuat:</p>
+                <a href="${data.downloadLink}" target="_blank">Unduh Video</a>
+            `;
+        }
+
+        // Menambahkan event listener pada form
+        if (formElement) {
+            formElement.addEventListener("submit", async function(event) {
+                event.preventDefault();
+
+                const url = urlInputElement.value;
+
+                if (validator(url)) {
+                    loaderElement.style.display = 'block';
+
+                    try {
+                        // Menggunakan Fetch API untuk permintaan yang lebih modern dan mudah ditangani
+                        const response = await fetch("https://snaptik.app/en2/abc2.php", {
+                            method: "POST",
+                            body: new FormData(formElement),
+                            // Headers yang mungkin diperlukan, seperti Content-Type
+                        });
+
+                        loaderElement.style.display = 'none';
+
+                        if (!response.ok) {
+                            showAlert(jsLang.serverError);
+                            return;
+                        }
+
+                        // Mengasumsikan server merespons dengan JSON
+                        const result = await response.json();
+
+                        // Pengecekan apakah respons JSON memiliki data yang diharapkan
+                        if (result && result.status === 'success' && result.downloadLink) {
+                            displayResult(result);
+                        } else {
+                            showAlert(jsLang.invalidServerResponse);
+                        }
+
+                    } catch (error) {
+                        console.error("Fetch error:", error);
+                        showAlert(jsLang.serverError);
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
